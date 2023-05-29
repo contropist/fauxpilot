@@ -118,6 +118,11 @@ function fastertransformer_backend(){
         docker run --rm -v "${MODELS_ROOT_DIR}":/models -e MODEL=${MODEL} -e NUM_GPUS="${NUM_GPUS}" moyix/model_converter:latest
       fi
     fi
+
+    # Not used for this backend but needs to be present
+    HF_CACHE_DIR="$(pwd)/.hf_cache"
+    mkdir -p "$HF_CACHE_DIR"
+    echo "HF_CACHE_DIR=${HF_CACHE_DIR}" >> .env
 }
 
 function python_backend(){
@@ -149,8 +154,8 @@ function python_backend(){
     fi
 
     # use int8? Allows larger models to fit in GPU but might be very marginally slower
-    read -rp "Do you want to use int8? y/n [y]: " USE_INT8
-    if [[ ${USE_INT8:-y} =~ ^[Nn]$ ]]; then
+    read -rp "Do you want to use int8? y/n [n]: " USE_INT8
+    if [[ ! $USE_INT8 =~ ^[Yy]$ ]]; then
         USE_INT8="0"
     else
         USE_INT8="1"
@@ -162,7 +167,7 @@ function python_backend(){
     echo "HF_CACHE_DIR=${HF_CACHE_DIR}" >> .env
 
     python3 ./python_backend/init_model.py --model_name "${MODEL}" --org_name "${ORG}" --model_dir "${MODELS_ROOT_DIR}" --use_int8 "${USE_INT8}"
-    bash -c "source .env ; docker compose build"
+    bash -c "source .env ; docker compose build || docker-compose build"
 }
 
 # choose backend
@@ -171,7 +176,7 @@ echo "[1] FasterTransformer backend (faster, but limited models)"
 echo "[2] Python backend (slower, but more models, and allows loading with int8)"
 read -rp "Enter your choice [1]: " BACKEND_NUM
 
-if [ "$BACKEND_NUM" -eq 2 ]; then
+if [[ "$BACKEND_NUM" -eq 2 ]]; then
     python_backend
 else
     fastertransformer_backend
